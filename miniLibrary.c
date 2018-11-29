@@ -34,7 +34,7 @@ typedef struct {
 
 int findUserByName(char myAccountName[], char myPsw[]) {
 	//printf("%s",path);
-	char buffer[MAX];
+	char buffer[MAX],BorrowerChoice;
 	FILE *userInfo = fopen(userTxt, "r+");
 	if (!userInfo) {
 		printf("Failed to open User.txt\n");
@@ -57,6 +57,12 @@ int findUserByName(char myAccountName[], char myPsw[]) {
 				userType = strtok(NULL, "\n");
 				if (strcmp(userType, "B") == 0) {
 					printf("You are borrower.\n");
+					printf("You are borrower.\n");
+					printf("Borrower Menu\n");
+					printf("Enter q: for book query by author sorted by book title\n");
+					printf("Enter s: for book status query by name\n");
+					printf("Enter u: to list books checked out by a given user\n");					
+					scanf("%c", &BorrowerChoice);
 				}
 				else if (strcmp(userType, "L") == 0) {
 					printf("You are librarian.\n");
