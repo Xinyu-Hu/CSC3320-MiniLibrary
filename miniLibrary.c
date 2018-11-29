@@ -58,6 +58,7 @@ User* findUser(int fieldNum, char* value) {
 	return NULL;
 }
 
+
 //return user* containing userID, accountName, password info if user is found.
 User* findUserByName(char myAccountName[], char myPsw[]) {
 	if (findUser(4, myAccountName) == NULL) {
@@ -76,7 +77,7 @@ User* findUserByName(char myAccountName[], char myPsw[]) {
 	return foundUser;
 }
 /* Get the last book's id number from myLibrary.txt.*/
-int getBookID() {
+int getLastBookID() {
 	char buffer[MAX];
 	FILE *bookInfo = fopen(bookTxt, "r+");
 	if (!bookInfo) {
@@ -86,9 +87,34 @@ int getBookID() {
 	while (!feof(bookInfo)) 
 		fgets(buffer, MAX, bookInfo);
 	char* bookIdString = strtok(_strdup(buffer),",");
-	int bookID = strtol(bookIdString,bookIdString+strlen(bookIdString-1),10);
+	int bookID = atoi(bookIdString);
 	return bookID;
 }
+int find(int fieldNum, char* value, const char* filePath) {
+	char buffer[MAX];
+	FILE *info = fopen(filePath, "r+");
+	if (!info) {
+		printf("Failed to open file\n");
+		exit(1);
+	}
+	while (!feof(info)) {
+		fgets(buffer, MAX, info);
+		char *content = strtok(_strdup(buffer), ",");
+		int ID = atoi(content);
+		if (fieldNum > 1) {
+			for (int j = 1; j < fieldNum; j++)
+				content = strtok(NULL, ",");
+		}
+		if (strcmp(content, value) == 0) {
+			printf("Found.");
+			return EXIT_SUCCESS;
+		}
+	}
+	fclose(info);
+	printf("User not found.");
+	return EXIT_SUCCESS;
+}
+
 
 void addBook() {
 	char author[MAX] = { 0 };
@@ -107,7 +133,7 @@ void addBook() {
 		/*here go back to main menu*/
 	}
 	FILE *bookInfo = fopen(bookTxt, "a+");
-	int bookID = getBookID();
+	int bookID = getLastBookID;
 	bookID++;
 	fprintf(bookInfo, "%d, %s, %s, Library, null, null", bookID, title, author);
 	fprintf(bookInfo, "\n");
@@ -117,12 +143,13 @@ void addBook() {
 	}
 
 int main(void) {
-	char myAccountName[MAX], myPsw[MAX];
-	printf("Enter your account name: ");
-	scanf("%s", &myAccountName);
-	printf("Enter your password: ");
-	scanf("%s", &myPsw);
-	findUserByName(myAccountName, myPsw);
+	//char myAccountName[MAX], myPsw[MAX];
+	//printf("Enter your account name: ");
+	//scanf("%s", &myAccountName);
+	//printf("Enter your password: ");
+	//scanf("%s", &myPsw);
+	//findUserByName(myAccountName, myPsw);
+	findBook(3, "Author1", bookTxt);
 	return EXIT_SUCCESS;
 }
 
