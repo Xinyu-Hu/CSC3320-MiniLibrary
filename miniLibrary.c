@@ -3,16 +3,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #define MAX 200
 
-const char userTxt[MAX] = "./UserInfo.txt";
-const char bookTxt[MAX] = "./MyLibrary.txt";
-
-typedef struct {
-	int year;
-	int month;
-	int day;
-}Date;
+const char *userTxt = "./UserInfo.txt";
+const char *bookTxt = "./MyLibrary.txt";
 typedef struct {
 	int userID;
 	char *firstName;
@@ -20,103 +15,103 @@ typedef struct {
 	char *accountName;
 	char *psw;
 	char userType;
+	int size;
 }User;
 typedef struct {
 	int bookID;
-	char bookName[MAX];
-	char author[MAX];
-	char user[MAX];
-	Date borrowDate;
-	Date dueDate;
+	char *bookName;
+	char *author;
+	char *status;
+	struct tm borrowDate;
+	struct tm  dueDate;
 }Book;
 
-User* findUser(int fieldNum, char* value) {
-	char buffer[MAX];
-	FILE *userInfo = fopen(userTxt, "r+");
-	if (!userInfo) {
-		printf("Failed to open User.txt\n");
-		exit(1);
-	}
-	while (!feof(userInfo)) {
-		fgets(buffer, MAX, userInfo);
-		char *content = _strdup(buffer);
-		content = strtok(content, ",");
-		char *userID = content;
-		if (fieldNum > 1) {
-			for (int j = 1; j < fieldNum; j++)
-				content = strtok(NULL, ",");
-		}
-		if (strcmp(content, value) == 0) {
-			//printf("Found user.");
-			User foundUser;
-			foundUser.userID = atoi(userID);
-			return &foundUser;
-		}
-	}
-	fclose(userInfo);
-	//printf("User not found.");
-	return NULL;
-}
+User userPool[MAX];
+Book bookPool[MAX];
 
-
-//return user* containing userID, accountName, password info if user is found.
-User* findUserByName(char myAccountName[], char myPsw[]) {
-	if (findUser(4, myAccountName) == NULL) {
-		printf("Log in failed\n");
-		return NULL;
-	}
-	
-	if (findUser(5, myPsw) == NULL) {
-		printf("Log in failed\n");
-		return NULL;
-	}
-	printf("Log in successfully.\n");
-	User* foundUser = findUser(5, myPsw);
-	foundUser->accountName = myAccountName;
-	foundUser->psw = myPsw;
-	return foundUser;
-}
-/* Get the last book's id number from myLibrary.txt.*/
-int getLastBookID() {
+int buildUserPool(char* filePath) {
 	char buffer[MAX];
-	FILE *bookInfo = fopen(bookTxt, "r+");
-	if (!bookInfo) {
-		printf("Failed to open MyLibrary.txt\n");
-		exit(1);
-	}
-	while (!feof(bookInfo)) 
-		fgets(buffer, MAX, bookInfo);
-	char* bookIdString = strtok(_strdup(buffer),",");
-	int bookID = atoi(bookIdString);
-	return bookID;
-}
-int find(int fieldNum, char* value, const char* filePath) {
-	char buffer[MAX];
+	int size = 0;
 	FILE *info = fopen(filePath, "r+");
 	if (!info) {
-		printf("Failed to open file\n");
+		printf("Failed to open User.txt\n");
 		exit(1);
 	}
 	while (!feof(info)) {
 		fgets(buffer, MAX, info);
 		char *content = strtok(_strdup(buffer), ",");
-		int ID = atoi(content);
-		if (fieldNum > 1) {
-			for (int j = 1; j < fieldNum; j++)
-				content = strtok(NULL, ",");
-		}
-		if (strcmp(content, value) == 0) {
-			printf("Found.");
-			return EXIT_SUCCESS;
-		}
+		User myUser;
+		myUser.userID = atoi(content);
+		myUser.firstName = strtok(NULL, ",");
+		myUser.lastName = strtok(NULL, ",");
+		myUser.accountName = strtok(NULL, ",");
+		myUser.psw = strtok(NULL, ",");
+		myUser.userType = *(strtok(NULL, ","));
+		userPool[myUser.userID] = myUser;
+		size = myUser.userID;
 	}
-	fclose(info);
-	printf("User not found.");
-	return EXIT_SUCCESS;
+	return size;	 
+}
+
+int buildBookPool(char* filePath) {
+	char buffer[MAX];
+	int size;
+	FILE *info = fopen(filePath, "r+");
+	if (!info) {
+		printf("Failed to open User.txt\n");
+		exit(1);
+	}
+	while (!feof(info)) {
+		fgets(buffer, MAX, info);
+		char *content = strtok(_strdup(buffer), ",");
+		Book myBook;
+		myBook.bookID = atoi(content);
+		myBook.bookName = strtok(NULL, ",");
+		myBook.author = strtok(NULL, ",");
+		myBook.status = strtok(NULL, ",");
+		char *borrowDate = _strdup(strtok(NULL, ","));
+		char *dueDate = _strdup(strtok(NULL, ","));
+		//if (strcmp(borrowDate, "null") != 0) {
+		//	myBook.borrowDate.tm_year = atoi(strtok(borrowDate, "-"));
+		//	myBook.borrowDate.tm_mon = atoi(strtok(NULL, "-"));
+		//	myBook.borrowDate.tm_mday = atoi(strtok(NULL, "-"));
+		//}
+		//if (strcmp(dueDate, "null") != 0) {
+		//	myBook.dueDate.tm_year = atoi(strtok(dueDate, "-"));
+		//	myBook.dueDate.tm_mon = atoi(strtok(NULL, "-"));
+		//	myBook.dueDate.tm_mday = atoi(strtok(NULL, "-"));
+		//}
+		bookPool[myBook.bookID] = myBook;
+		size = myBook.bookID;
+	}
+	return size;
 }
 
 
-void addBook() {
+//return user index if user is found.
+int findUserByName(char myAccountName[], char myPsw[],User userPool[], int size) {
+	for (int i = 1; i <= size; i++) {
+		if (strcmp(userPool[i].accountName, myAccountName) == 0) {
+			if (strcmp(userPool[i].psw, myPsw) == 0) {
+				printf("Found.");
+				return	i;
+			}
+		}
+	}
+	printf("Not found.");
+	return 0;
+}
+
+//find all books of same author and save book array to Book list[]
+void findBookByAuthor(char* author, int bookNum) {
+	for (int i = 1; i <= bookNum; i++) {
+		if (strcmp(bookPool[i].author, author) == 0) {
+			printf("%s\n",bookPool[i].bookName);
+		}
+	}
+}
+
+void addBook(int bookNum) {
 	char author[MAX] = { 0 };
 	char title[MAX] = { 0 };
 
@@ -133,8 +128,7 @@ void addBook() {
 		/*here go back to main menu*/
 	}
 	FILE *bookInfo = fopen(bookTxt, "a+");
-	int bookID = getLastBookID;
-	bookID++;
+	int bookID = bookNum + 1;
 	fprintf(bookInfo, "%d, %s, %s, Library, null, null", bookID, title, author);
 	fprintf(bookInfo, "\n");
 	fclose(bookInfo);
@@ -143,13 +137,23 @@ void addBook() {
 	}
 
 int main(void) {
+	int bookNum = buildBookPool(bookTxt);
+	int userNum = buildUserPool(userTxt);
+
 	//char myAccountName[MAX], myPsw[MAX];
 	//printf("Enter your account name: ");
 	//scanf("%s", &myAccountName);
 	//printf("Enter your password: ");
 	//scanf("%s", &myPsw);
-	//findUserByName(myAccountName, myPsw);
-	findBook(3, "Author1", bookTxt);
+	//int r = findUserByName(myAccountName, myPsw, userPool, userNum);
+	//
+	//if (r != 0) {
+	//	printf("%s %s", userPool[r].firstName, userPool[r].lastName);
+	//}
+	findBookByAuthor("J. K. Rowling", bookNum);
+	
+
+	
 	return EXIT_SUCCESS;
 }
 
