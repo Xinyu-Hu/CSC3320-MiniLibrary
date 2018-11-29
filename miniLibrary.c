@@ -16,11 +16,11 @@ typedef struct {
 	int day;
 }Date;
 typedef struct {
-	long userID;
-	char firstName[MAX];
-	char lastName[MAX];
-	int accountName;
-	char psw[MAX];
+	int userID;
+	char *firstName;
+	char *lastName;
+	char *accountName;
+	char *psw;
 	char userType;
 }User;
 typedef struct {
@@ -28,12 +28,11 @@ typedef struct {
 	char bookName[MAX];
 	char author[MAX];
 	char user[MAX];
-	Date borrowD;
-	Date dueD;
+	Date borrowDate;
+	Date dueDate;
 }Book;
 
-int findUserByName(char myAccountName[], char myPsw[]) {
-	//printf("%s",path);
+User* findUser(int fieldNum, char* value) {
 	char buffer[MAX];
 	FILE *userInfo = fopen(userTxt, "r+");
 	if (!userInfo) {
@@ -41,33 +40,80 @@ int findUserByName(char myAccountName[], char myPsw[]) {
 		exit(1);
 	}
 	while (!feof(userInfo)) {
-		fgets(buffer, MAX, userInfo); // gets profile of user in buffer as char[]
-		char *account, *psw, *userType;
-		//Gets account info in account and compare.
-		account = _strdup(buffer);
-		account = strtok(account, ",");
-		for (int i = 0; i < 3; i++) {
-			account = strtok(NULL, ",");
+		fgets(buffer, MAX, userInfo);
+		char *content = _strdup(buffer);
+		content = strtok(content, ",");
+		char *userID = content;
+		if (fieldNum > 1) {
+			for (int j = 1; j < fieldNum; j++)
+				content = strtok(NULL, ",");
 		}
-		//If account matched, compare password.
-		if (strcmp(account, myAccountName) == 0) {
-			psw = strtok(NULL, ",");
-			if (strcmp(psw, myPsw) == 0) {
-				printf("Log in successfully.\n");
-				userType = strtok(NULL, "\n");
-				if (strcmp(userType, "B") == 0) {
-					printf("You are borrower.\n");
-				}
-				else if (strcmp(userType, "L") == 0) {
-					printf("You are librarian.\n");
-				}
-				return EXIT_SUCCESS;
-			}
-		}	
+		if (strcmp(content, value) == 0) {
+			//printf("Found user.");
+			User foundUser;
+			foundUser.userID = atoi(userID);
+			return &foundUser;
+		}
 	}
 	fclose(userInfo);
-	printf("Log in failed\n");
-	return EXIT_SUCCESS;
+	//printf("User not found.");
+	return NULL;
+}
+
+//return user* containing userID, accountName, password info if user is found.
+User* findUserByName(char myAccountName[], char myPsw[]) {
+	////printf("%s",path);
+	//char buffer[MAX];
+	//FILE *userInfo = fopen(userTxt, "r+");
+	//if (!userInfo) {
+	//	printf("Failed to open User.txt\n");
+	//	exit(1);
+	//}
+	//while (!feof(userInfo)) {
+	//	fgets(buffer, MAX, userInfo); // gets profile of user in buffer as char[]
+	//	
+	//	char *account, *psw, *userType;
+	//	//Gets account info in account and compare.
+	//	account = _strdup(buffer);
+	//	account = strtok(account, ",");
+	//	for (int i = 0; i < 3; i++) {
+	//		account = strtok(NULL, ",");
+	//	}
+	//	//If account matched, compare password.
+	//	if (strcmp(account, myAccountName) == 0) {
+	//		psw = strtok(NULL, ",");
+	//		if (strcmp(psw, myPsw) == 0) {
+	//			printf("Log in successfully.\n");
+	//			userType = strtok(NULL, "\n");
+	//			User buffUser;
+	//			initUser(&buffUser, account, psw);
+	//			if (strcmp(userType, "B") == 0) {
+	//				printf("You are borrower.\n");
+	//			}
+	//			else if (strcmp(userType, "L") == 0) {
+	//				printf("You are librarian.\n");
+	//			}
+	//			return EXIT_SUCCESS;
+	//		}
+	//	}	
+	//}
+	//fclose(userInfo);
+	//printf("Log in failed\n");
+	//return EXIT_SUCCESS;
+	if (findUser(4, myAccountName) == NULL) {
+		printf("Log in failed\n");
+		return NULL;
+	}
+	
+	if (findUser(5, myPsw) == NULL) {
+		printf("Log in failed\n");
+		return NULL;
+	}
+	printf("Log in successfully.\n");
+	User* foundUser = findUser(5, myPsw);
+	foundUser->accountName = myAccountName;
+	foundUser->psw = myPsw;
+	return foundUser;
 }
 /* Get the last book's id number from myLibrary.txt.*/
 int getBookID() {
@@ -106,10 +152,9 @@ void addBook() {
 	fprintf(bookInfo, "%d, %s, %s, Library, null, null", bookID, title, author);
 	fprintf(bookInfo, "\n");
 	fclose(bookInfo);
-	printf("Book: %s author: %s was added successfully!\n", title, author);
+	printf("Book: %s author: %s added successfully!\n", title, author);
 	/*go back to main menu or ask for enter more book*/
-
-}
+	}
 
 int main(void) {
 	char myAccountName[MAX], myPsw[MAX];
@@ -118,6 +163,8 @@ int main(void) {
 	printf("Enter your password: ");
 	scanf("%s", &myPsw);
 	findUserByName(myAccountName, myPsw);
-	addBook();
 	return EXIT_SUCCESS;
 }
+
+
+
