@@ -80,25 +80,25 @@ int buildBookPool(char* filePath) {
 		char *borrowDate = _strdup(strtok(NULL, ","));
 		char *dueDate = _strdup(strtok(NULL, ","));
 		if (strcmp(borrowDate, "null") != 0) {
-			//myBook.borrowDate.tm_year = atoi(strtok(borrowDate, "-"));
-			//myBook.borrowDate.tm_mon = atoi(strtok(NULL, "-"));
-			//myBook.borrowDate.tm_mday = atoi(strtok(NULL, "-"));
-			struct tm borrow;
-			borrow.tm_year = atoi(strtok(borrowDate, "-"));
-			borrow.tm_mon = atoi(strtok(NULL, "-"));
-			borrow.tm_mday = atoi(strtok(NULL, "-"));
-			myBook.borrowDate = borrow;
+			myBook.borrowDate.tm_year = atoi(strtok(borrowDate, "-"));
+			myBook.borrowDate.tm_mon = atoi(strtok(NULL, "-"));
+			myBook.borrowDate.tm_mday = atoi(strtok(NULL, "-"));
+		}
+		else {
+			myBook.borrowDate.tm_year = 0;
+			myBook.borrowDate.tm_mon = 0;
+			myBook.borrowDate.tm_mday = 0;
 		}
 		int cmp = strcmp(dueDate, "null\n");
 		if (strcmp(dueDate, "null\n") != 0 && strcmp(dueDate, "null\r\n") != 0) {
-			//myBook.dueDate.tm_year = atoi(strtok(dueDate, "-"));
-			//myBook.dueDate.tm_mon = atoi(strtok(dueDate, "-"));
-			//myBook.dueDate.tm_mday = atoi(strtok(dueDate, "-"));
-			struct tm due;
-			due.tm_year = atoi(strtok(dueDate, "-"));
-			due.tm_mon = atoi(strtok(NULL, "-"));
-			due.tm_mday = atoi(strtok(NULL, "-"));
-			myBook.dueDate = due;
+			myBook.dueDate.tm_year = atoi(strtok(dueDate, "-"));
+			myBook.dueDate.tm_mon = atoi(strtok(dueDate, "-"));
+			myBook.dueDate.tm_mday = atoi(strtok(dueDate, "-"));
+		}
+		else {
+			myBook.dueDate.tm_year = 0;
+			myBook.dueDate.tm_mon = 0;
+			myBook.dueDate.tm_mday = 0;
 		}
 		bookPool[myBook.bookID] = myBook;
 		size = myBook.bookID;
@@ -178,22 +178,31 @@ void BorrowerMenu(char BorrowerChoice, int bookNum) {
 //}
 
 
-//return user index if user is found.
+//Login function
 int findUserByName(char myAccountName[], char myPsw[], User userPool[], int size, int bookNum) {
 	char BorrowerChoice;
 	for (int i = 1; i <= size; i++) {
 		if (strcmp(userPool[i].accountName, myAccountName) == 0) {
 			if (strcmp(userPool[i].psw, myPsw) == 0) {
-				printf("Found.");
-				if (userPool[i].userType == 'B')
+				printf("Account is found.");
+				if (userPool[i].userType == 'B') {
 					printf("Borrower Menu:\n");
-				printf("Enter “q” for book query by	author sorted by book title\n");
-				printf("Enter “s” for book status query	by name\n");
-				printf("Enter “u” to list books	checked	out	by a given user\n");
-				scanf("%c", &BorrowerChoice);
-				BorrowerMenu(BorrowerChoice, bookNum);
+					printf("Enter 'q' for book query by	author sorted by book title\n");
+					printf("Enter 's' for book status query	by name\n");
+					printf("Enter 'u' to list books	checked	out	by a given user\n");
+					scanf("%c", &BorrowerChoice);
+					BorrowerMenu(BorrowerChoice, bookNum);
+				}
+				else if (userPool[i].userType == 'L') {
+					printf("Librarian Menu:\n");
+					printf("Enter 'a' to add a book into library.\n");
+					printf("Enter 'd' to delete a book from library.\n");
+					printf("Enter 'o' to check out a book.\n");
+					printf("Enter 'r' to return a book.\n");
+					printf("Enter 'x' to quit.\n");
+				}
 			}
-			printf("Not found.");
+			printf("Account is not found.");
 		}
 		return	i;
 	}
@@ -251,14 +260,20 @@ int BackToMenu(int bookNum) {
 void findBookByName(char *BookName, int bookNum) {
 	char answer, year[10] = {0};
 	for (int i = 1; i <= bookNum; i++) {
+		//searchName = bookPool[i] + "\n"
 		char *searchName = _strdup(bookPool[i].bookName, strlen(bookPool[i].bookName) + 1);
 		strcat(searchName, "\n");
 		if (strcmp(searchName, BookName) == 0) {
-			char buff[10] = {0};
-			int a = bookPool[i].dueDate.tm_year;
-			sprintf(buff, "%d",a );
-			if (strcmp(buff, "null") == 0)
-				printf("%d %s in library.\n", bookPool[i].bookID, bookPool[i].bookName);
+			//char bookDueYear[10] = {0};
+			//int year = bookPool[i].dueDate.tm_year;
+			//sprintf(bookDueYear, "%d",year );
+			//int x = (strcmp(bookDueYear, "null"));
+			//if (strcmp(bookDueYear, "null") == 0)
+			char* status = bookPool[i].status;
+			if (strcmp(status, "Library") == 0) {
+				printf("%d %s is in library.\n", bookPool[i].bookID, bookPool[i].bookName);
+				return;
+			}
 			printf("%d %s Avaliable after %d-%d-%d\n", bookPool[i].bookID, bookPool[i].bookName, bookPool[i].dueDate.tm_year, bookPool[i].dueDate.tm_mon, bookPool[i].dueDate.tm_mday);
 		}
 	}
@@ -301,23 +316,24 @@ int main(void) {
 	int userNum = buildUserPool(userTxt);
 
 	char bookName[MAX] = {0};
-	//char myAccountName[MAX], myPsw[MAX];
-	//printf("Enter your account name: ");
-	//scanf("%s", &myAccountName);
-	//printf("Enter your password: ");
-	//scanf("%s", &myPsw);
-	//int r = findUserByName(myAccountName, myPsw, userPool, userNum, bookNum);
-	//
-	//if (r != 0) {
-	//	printf("%s %s", userPool[r].firstName, userPool[r].lastName);
-	//}
+	char myAccountName[MAX], myPsw[MAX];
+	printf("Enter your account name: ");
+	scanf("%s", &myAccountName);
+	printf("Enter your password: ");
+	scanf("%s", &myPsw);
+	int r = findUserByName(myAccountName, myPsw, userPool, userNum, bookNum);	
+	if (r != 0) {
+		printf("%s %s", userPool[r].firstName, userPool[r].lastName);
+	}
 	//findBookByAuthor("J. K. Rowling", bookNum);
 
 	printf("Enter book name: ");
 	fgets(bookName, 50, stdin);
 	findBookByName(bookName ,bookNum);
-	printf("%d", bookPool[2].dueDate.tm_mon);
-	
-
+	//printf("%d\n", bookPool[2].dueDate.tm_mon);
+	//addBook(bookNum);
 	return EXIT_SUCCESS;
 }
+
+
+
