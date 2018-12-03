@@ -12,6 +12,11 @@
 const char *userTxt = "./UserInfo.txt";
 const char *bookTxt = "./MyLibrary.txt";
 typedef struct {
+	int year;
+	int month;
+	int day;
+}mtime;
+typedef struct {
 	int userID;
 	char *firstName;
 	char *lastName;
@@ -26,30 +31,55 @@ typedef struct {
 	char *bookName;
 	char *author;
 	char *status;
-	struct tm borrowDate;
-	struct tm  dueDate;
+	mtime borrowDate;
+	mtime dueDate;
 }Book;
 
 User userPool[MAX];
 Book bookPool[MAX];
-void BorrowerMenu(char BorrowerChoice,int bookNum, char* AccountName);
-void LibrarianMenu(char Choice, int userNum, int bookNum);
+//Log In
+/*update from database to userPool array*/
+int buildUserPool(char* filePath);
+/*update from databaes to bookPool array*/
+int buildBookPool(char* filePath);
 int findUserByName(char myAccountName[], char myPsw[], User userPool[], int userNum, int bookNum);
+int findAcct(char *acct, User userPool[], int userNum, int bookNum);
+//Librarian
+/*Check Out Book for user*/
+int checkOutBook(int userNum, int bookNum, User userPool[]);
+/*delete book from library*/
+int deleteBook(int userNum, int bookNum);
+/*add book to library*/
+void addBook(int userNum, int bookNum);
+/*check out book for the given user*/
+int checkOutBook(int userNum, int bookNum, User userPool[]);
+/*return book for the given user*/
+void returnBook(int userNum, int bookNum);
+/*check whether the book exist through input bookID*/
+int checkBook(int bookNum, int bookID);
+/*traverse through bookPool array and update book database*/
+void updateBookSheet(char *pathName, int bookNum);
+/*Librarian Menu*/
+void LibrarianMenu(char Choice, int userNum, int bookNum, User userPool[]);
+int LibrarianBackToMenu(int userNum, int bookNum);
+
+/*convert borrow day to due day by adding 30 days*/
+mtime convertTime(mtime date);
+
+//Borrower
 void findBookByName(char *BookName, int bookNum, char* AccountName);
 void findBookByAuthor(char *author, int bookNum, char* AccountName);
 int TryAgainQ(int bookNum, char* AccountName);
 int TryAgainS(int bookNum, char* AccountName);
 int TryAgainU(int year, int month, int date, int bookNum, char *AccountName);
-int BorrowerBackToMenu(int bookNum, char *AccountName);
+/*traverse through userPool array and update user database*/
 void updateUserSheet(char* pathName, int userNum);
-void updateBookSheet(char *pathName,int bookNum);
-void addBook(int userNum, int bookNum);
-int deleteBook(int userNum, int bookNum);
-int checkOutBook(int userNum, int bookNum);
-void returnBook(int userNum, int bookNum);
-int checkBook(int bookNum, int bookID);
-int ListBooksDueDate(int year, int month, int date, int bookNum, char *AccountName);
+int ListBooksDueDate(int year, int month, int day, int bookNum, char *AccountName);
 int CheckIllegalDate(int year, int month, int date);
+/*Borrower Menu*/
+void BorrowerMenu(char BorrowerChoice, int bookNum, char* AccountName);
+int BorrowerBackToMenu(int bookNum, char *AccountName);
+
 
 int buildUserPool(char* filePath) {
 	char buffer[MAX];
@@ -74,10 +104,10 @@ int buildUserPool(char* filePath) {
 		userNum = myUser.userID;
 	}
 	fclose(info);
-	return userNum;	 
+	return userNum;
 }
 int buildBookPool(char* filePath) {
-	char buffer[MAX] = {0};
+	char buffer[MAX] = { 0 };
 	int bookNum = 0;
 	FILE *info = fopen(filePath, "r+");
 	if (!info) {
@@ -95,25 +125,25 @@ int buildBookPool(char* filePath) {
 		char *borrowDate = _strdup(strtok(NULL, ","));
 		char *dueDate = _strdup(strtok(NULL, ","));
 		if (strcmp(borrowDate, "null") != 0) {
-			myBook.borrowDate.tm_year = atoi(strtok(borrowDate, "-"));
-			myBook.borrowDate.tm_mon = atoi(strtok(NULL, "-"));
-			myBook.borrowDate.tm_mday = atoi(strtok(NULL, "-"));
+			myBook.borrowDate.year = atoi(strtok(borrowDate, "-"));
+			myBook.borrowDate.month = atoi(strtok(NULL, "-"));
+			myBook.borrowDate.day = atoi(strtok(NULL, "-"));
 		}
 		else {
-			myBook.borrowDate.tm_year = 0;
-			myBook.borrowDate.tm_mon = 0;
-			myBook.borrowDate.tm_mday = 0;
+			myBook.borrowDate.year = 0;
+			myBook.borrowDate.month = 0;
+			myBook.borrowDate.day = 0;
 		}
 		int cmp = strcmp(dueDate, "null\n");
 		if (strcmp(dueDate, "null\n") != 0 && strcmp(dueDate, "null\r\n") != 0) {
-			myBook.dueDate.tm_year = atoi(strtok(dueDate, "-"));
-			myBook.dueDate.tm_mon = atoi(strtok(NULL, "-"));
-			myBook.dueDate.tm_mday = atoi(strtok(NULL, "-"));
+			myBook.dueDate.year = atoi(strtok(dueDate, "-"));
+			myBook.dueDate.month = atoi(strtok(NULL, "-"));
+			myBook.dueDate.day = atoi(strtok(NULL, "-"));
 		}
 		else {
-			myBook.dueDate.tm_year = 0;
-			myBook.dueDate.tm_mon = 0;
-			myBook.dueDate.tm_mday = 0;
+			myBook.dueDate.year = 0;
+			myBook.dueDate.month = 0;
+			myBook.dueDate.day = 0;
 		}
 		bookPool[myBook.bookID] = myBook;
 		bookNum = myBook.bookID;
@@ -121,8 +151,6 @@ int buildBookPool(char* filePath) {
 	fclose(info);
 	return bookNum;
 }
-
-//Login function
 int findUserByName(char myAccountName[], char myPsw[], User userPool[], int userNum, int bookNum) {
 	char Choice;
 	for (int i = 1; i <= userNum; i++) {
@@ -145,13 +173,19 @@ int findUserByName(char myAccountName[], char myPsw[], User userPool[], int user
 					printf("Enter 'r' to return a book.\n");
 					printf("Enter 'x' to quit.\n");
 					scanf(" %c", &Choice);
-					LibrarianMenu(Choice,userNum, bookNum);
+					LibrarianMenu(Choice,userNum, bookNum,userPool);
 					return i;
 				}
 			}
 		}	
 	}
 	printf("Account is not found.");
+}
+int findAcct(char *acct, User userPool[], int userNum, int bookNum) {
+	for (int i = 1; i <= userNum; i++) {
+		if (strcmp(userPool[i].accountName, acct) == 0)
+			return i;
+	}
 }
 void findBookByAuthor(char *author, int bookNum, char* AccountName) {
 	char answer;
@@ -181,7 +215,7 @@ void findBookByName(char *BookName, int bookNum, char* AccountName) {
 				break;
 			}
 			else {
-				printf("%d %s Avaliable after %d-%d-%d\n", bookPool[i].bookID, bookPool[i].bookName, bookPool[i].dueDate.tm_year, bookPool[i].dueDate.tm_mon, bookPool[i].dueDate.tm_mday);
+				printf("%d %s Avaliable after %d-%d-%d\n", bookPool[i].bookID, bookPool[i].bookName, bookPool[i].dueDate.year, bookPool[i].dueDate.month, bookPool[i].dueDate.day);
 				break;
 			}
 		}
@@ -210,9 +244,9 @@ int TryAgainS(int bookNum, char* AccountName) {
 	findBookByName(BookName, bookNum,AccountName);
 	return EXIT_SUCCESS;
 }
-int TryAgainU(int year, int month, int date, int bookNum, char *AccountName) {
-	printf("Please enter current date: Year-Month-Date \n");
-	scanf("%d-%d-%d", &year, &month, &date);
+int TryAgainU( int year, int month, int date, int bookNum, char *AccountName) {
+	//printf("Please enter current date: Year-Month-Date \n");
+	//scanf("%d-%d-%d", &year, &month, &date);
 	ListBooksDueDate(year, month, date, bookNum, AccountName);
 	return EXIT_SUCCESS;
 }
@@ -241,27 +275,6 @@ void BorrowerMenu(char Choice, int bookNum, char* AccountName) {
 	}
 
 }
-void LibrarianMenu(char Choice, int userNum, int bookNum) {
-	char Author[MAX], BookName[MAX];
-	switch (Choice) {
-	case('a'): //add book
-		addBook(userNum, bookNum);
-		break;
-	case('d')://delete book
-		deleteBook(userNum, bookNum);
-		break;
-	case('o')://check out book
-		checkOutBook(userNum, bookNum);
-		break;
-	case('r')://return book
-		returnBook(userNum, bookNum);
-		break;
-	case('x')://quit
-		break;
-	default:
-		printf("Invalid input.\n");
-	}
-}
 int BorrowerBackToMenu(int bookNum, char* AccountName) {
 	char Choice;
 	printf("Borrower Menu:\n");
@@ -281,9 +294,31 @@ int LibrarianBackToMenu(int userNum, int bookNum) {
 	printf("Enter 'r' to return a book.\n");
 	printf("Enter 'x' to quit.\n");
 	scanf(" %c", &Choice);
-	LibrarianMenu(Choice, bookNum,userNum);
+	LibrarianMenu(Choice, bookNum,userNum, userPool);
 	exit(1);
 }
+void LibrarianMenu(char Choice, int userNum, int bookNum, User userPool[]) {
+	char Author[MAX], BookName[MAX];
+	switch (Choice) {
+	case('a'): //add book
+		addBook(userNum, bookNum);
+		break;
+	case('d')://delete book
+		deleteBook(userNum, bookNum);
+		break;
+	case('o')://check out book
+		checkOutBook(userNum, bookNum, userPool);
+		break;
+	case('r')://return book
+		returnBook(userNum, bookNum);
+		break;
+	case('x')://quit
+		break;
+	default:
+		printf("Invalid input.\n");
+	}
+}
+
 void updateUserSheet(char* pathName, int userNum) {
 	FILE *fp = fopen(pathName, "w+");
 	//int size = 4;
@@ -291,27 +326,67 @@ void updateUserSheet(char* pathName, int userNum) {
 	while (n < userNum) {
 		User tempUser = userPool[n];
 
-		fprintf(fp, "%d, %s, %s, %s, %s, %s", tempUser.userID, tempUser.firstName, tempUser.lastName,
+		fprintf(fp, "%d,%s,%s,%s,%s,%s", tempUser.userID, tempUser.firstName, tempUser.lastName,
 			tempUser.accountName, tempUser.psw, tempUser.userType);
 		fprintf(fp, "\n");
 		n++;
 	}
+	fclose(fp);
 }
 void updateBookSheet(char *pathName, int bookNum) {
 	FILE *fp = fopen(pathName, "w+");
 	//int size = buildBookPool(bookTxt);
 	int n = 1;
-	while (n < bookNum) {
+	while (n <= bookNum) {
 		Book tempBook = bookPool[n];
-		fprintf(fp, "%d, %s, %s, %s, %d-%d-%d, %d-%d-%d", tempBook.author, tempBook.bookName, tempBook.author, tempBook.status,
-			tempBook.borrowDate.tm_mon, tempBook.borrowDate.tm_mday, tempBook.borrowDate.tm_year,
-			tempBook.dueDate.tm_mon, tempBook.dueDate.tm_mday, tempBook.dueDate.tm_year);
+		fprintf(fp, "%d,%s,%s,%s,%d-%d-%d,%d-%d-%d\n", tempBook.bookID, tempBook.bookName, tempBook.author, tempBook.status,
+			tempBook.borrowDate.year, tempBook.borrowDate.month, tempBook.borrowDate.day,
+			tempBook.dueDate.year, tempBook.dueDate.month, tempBook.dueDate.day);
 
-		fprintf(fp, "\n");
+	//	fprintf(fp, "\n");
 		n++;
 	}
+	fclose(fp);
 }
-/*traverse bookPool to find book*/
+mtime convertTime(mtime date) {//pass struct time as argument
+	mtime newDate = date;
+	if (date.month == 1 || date.month == 3 || date.month == 5 || date.month == 7 || date.month == 8 || date.month == 10) {
+		if (date.day + 30 <= 31) {
+			newDate.year = date.year;
+			newDate.month = date.month;
+			newDate.day = date.day + 30;
+		}
+		else {
+			newDate.year = date.year;
+			newDate.month = date.month + 1;
+			newDate.day = date.day + 30 - 31;
+		}
+	}
+	else if (date.month == 4 || date.month == 6 || date.month == 9 || date.month == 11) {
+		newDate.year = date.year;
+		newDate.month = date.month + 1;
+		newDate.day = date.day;
+	}
+	else if (date.month == 2) {
+		newDate.year = date.year;
+		newDate.month = date.month + 1;
+		newDate.day = date.day + 30 - 28;
+	}
+	else {// the 12th month
+		if (date.day + 30 <= 31) {
+			newDate.year = date.year;
+			newDate.month = date.month;
+			newDate.day = date.day + 30;
+		}
+		else {
+			newDate.year = date.year + 1;
+			newDate.month = 1;
+			newDate.day = date.day + 30 - 31;
+		}
+	}
+	return newDate;
+}
+
 int checkBook(int bookNum, int bookID) {
 	int n = 1;
 	while (n <= bookNum) {
@@ -325,47 +400,61 @@ int checkBook(int bookNum, int bookID) {
 }
 
 //TEST THIS!!!
-int ListBooksDueDate(int year, int month, int date, int bookNum, char *AccountName) {
+int ListBooksDueDate(int year, int month, int day, int bookNum, char *AccountName) {
 	char *answer;
-	struct tm Date;
-	Date.tm_year = year;
-	Date.tm_mon = month;
-	Date.tm_mday = date;
-	time_t currentDate = mktime(&Date);
-	time_t DueDate;
-	if (CheckIllegalDate(year, month, date) == ILLEGAL) {
+	time_t curtime;
+	struct tm *currentDate;
+	time(&curtime);
+	currentDate = localtime(&curtime); //generate current time and save it as borrow day; 
+	currentDate->tm_year += 1900;
+	currentDate->tm_mon += 1;
+
+	if (CheckIllegalDate(year, month, day) == ILLEGAL) {
 		printf("Illegal input date!\n");
-		printf("Press T for Try again or B for Back to menu\n");
+		printf("Press T for Try again with system current date or B for Back to menu\n");
 		if (scanf(" %c", &answer) == 1 && answer == 'T')
-			TryAgainU(year, month, date, bookNum, AccountName);
+			TryAgainU(currentDate->tm_year + 1900, currentDate->tm_mon + 1, currentDate->tm_mday, bookNum, AccountName);
 		if (answer == 'B')
 			BorrowerBackToMenu(bookNum, AccountName);
 	}
+
 	for (int i = 1; i <= bookNum; i++) {
 		if (strcmp(bookPool[i].status, AccountName) == 0) {
-			//DueDate = mktime(&bookPool[i].dueDate);
-			//if (currentDate > DueDate) {
-			//	printf("%d,%s,%s,%s,%s,%s,Over Due", bookPool[i].bookID, bookPool[i].bookName, bookPool[i].author, bookPool[i].status, ctime(mktime(&bookPool[i].borrowDate)), ctime(DueDate));
+			mtime DueDate = bookPool[i].dueDate;
+			//if (currentDate->tm_year > DueDate.year) {
+			//	printf("%d,%s,%s,%s,%d-%d-%d,%d-%d-%d,Over Due", bookPool[i].bookID, bookPool[i].bookName, bookPool[i].author, bookPool[i].status,
+			//		bookPool[i].borrowDate.year, bookPool[i].borrowDate.month, bookPool[i].borrowDate.day, bookPool[i].dueDate.year, bookPool[i].dueDate.month, bookPool[i].dueDate.day);
 			//}else {
-			//	printf("%d,%s,%s,%s,%s,%s", bookPool[i].bookID, bookPool[i].bookName, bookPool[i].author, bookPool[i].status, ctime(mktime(&bookPool[i].borrowDate)), ctime(DueDate));
+			//	printf("%d,%s,%s,%d-%d-%d,%d-%d-%d,%s", bookPool[i].bookID, bookPool[i].bookName, bookPool[i].author, bookPool[i].status,
+			//		bookPool[i].borrowDate.year,bookPool[i].borrowDate.month, bookPool[i].borrowDate.day, bookPool[i].dueDate.year, bookPool[i].dueDate.month, bookPool[i].dueDate.day);
 			//}
 			//Date current date
-			int bookYear = bookPool[i].dueDate.tm_year;
-			int bookMon = bookPool[i].dueDate.tm_mon;
-			int bookDay = bookPool[i].dueDate.tm_mday;
-			if (bookYear < year) {
-				printf("%d, %s, %s, %s, %s, %s, Over Due", bookPool[i].bookID, bookPool[i].bookName, bookPool[i].author, bookPool[i].status, "t","t" );//ctime(mktime(&bookPool[i].borrowDate)), ctime(mktime(&bookPool[i].dueDate)));
-				return EXIT_SUCCESS;
+			//int bookYear = bookPool[i].dueDate.year;
+			//int bookMon = bookPool[i].dueDate.month;
+			//int bookDay = bookPool[i].dueDate.day;
+			if (DueDate.year < currentDate->tm_year) {
+				printf("%d,%s,%s,%s,%d-%d-%d,%d-%d-%d,Over Due\n", bookPool[i].bookID, bookPool[i].bookName, bookPool[i].author, bookPool[i].status,
+					bookPool[i].borrowDate.year, bookPool[i].borrowDate.month, bookPool[i].borrowDate.day, bookPool[i].dueDate.year, bookPool[i].dueDate.month, bookPool[i].dueDate.day);
 			}
-			
-			printf("Press T for Try again or B for Back to menu\n");
-			if (scanf(" %c", &answer) == 1 && answer == 'T')
-				TryAgainU(year, month, date, bookNum, AccountName);
-			if (answer == 'B')
-				BorrowerBackToMenu(bookNum, AccountName);
-		}
-		//return EXIT_SUCCESS;
+			else if (DueDate.month < currentDate->tm_mon ) {
+				printf("%d,%s,%s,%s,%d-%d-%d,%d-%d-%d,Over Due\n", bookPool[i].bookID, bookPool[i].bookName, bookPool[i].author, bookPool[i].status,
+					bookPool[i].borrowDate.year, bookPool[i].borrowDate.month, bookPool[i].borrowDate.day, bookPool[i].dueDate.year, bookPool[i].dueDate.month, bookPool[i].dueDate.day);
+			}
+			else if (DueDate.day < currentDate->tm_mday){
+				printf("%d,%s,%s,%s,%d-%d-%d,%d-%d-%d,Over Due\n", bookPool[i].bookID, bookPool[i].bookName, bookPool[i].author, bookPool[i].status,
+					bookPool[i].borrowDate.year, bookPool[i].borrowDate.month, bookPool[i].borrowDate.day, bookPool[i].dueDate.year, bookPool[i].dueDate.month, bookPool[i].dueDate.day);
+			}else {
+				printf("%d,%s,%s,%d-%d-%d,%d-%d-%d,%s, not over due\n", bookPool[i].bookID, bookPool[i].bookName, bookPool[i].author, bookPool[i].status,
+					bookPool[i].borrowDate.year, bookPool[i].borrowDate.month, bookPool[i].borrowDate.day, bookPool[i].dueDate.year, bookPool[i].dueDate.month, bookPool[i].dueDate.day);
+			}	
+		}	
 	}
+	printf("Press T for Try again or B for Back to menu\n");
+	if (scanf(" %c", &answer) == 1 && answer == 'T')
+		TryAgainU(currentDate->tm_year, currentDate->tm_mon, currentDate->tm_mday, bookNum, AccountName);
+	if (answer == 'B')
+		BorrowerBackToMenu(bookNum, AccountName);
+	//return EXIT_SUCCESS;
 }
 
 int CheckIllegalDate(int yy, int mm, int dd){
@@ -422,32 +511,6 @@ int CheckIllegalDate(int yy, int mm, int dd){
 
 
 
-//void addBook(int bookNum) {
-//	char author[MAX] = { 0 };
-//	char title[MAX] = { 0 };
-//
-//	printf("Enter book title:\n");
-//	scanf(" %[^\n]%*c", &title);
-//	/*input string with whitespace.
-//	[^\n]take input until newline;
-//	*c reads newline and discard it to prevent further problem for next input*/
-//	printf("Enter author name:\n");
-//	scanf(" %[^\n]s%*c", &author);
-//	
-//	if (strlen(author) == 0 || strlen(title) == 0) {
-//		printf("Invalid Entry! Try again");
-//		/*here go back to main menu*/
-//	}
-//	FILE *bookInfo = fopen(bookTxt, "a+");
-//	int bookID = bookNum + 1;
-//	fprintf(bookInfo, "%d,%s,%s,Library,null,null", bookID, title, author);
-//	fprintf(bookInfo, "\n");
-//	fclose(bookInfo);
-//	printf("Book: %s author: %s added successfully!\n", title, author);
-//	/*go back to main menu or ask for enter more book*/
-//	}
-
-
 void addBook(int userNum, int bookNum) {
 	char author[MAX] = { 0 };
 	char title[MAX] = { 0 };
@@ -472,19 +535,29 @@ void addBook(int userNum, int bookNum) {
 			LibrarianBackToMenu(userNum, bookNum);
 		}
 	}
-	FILE *bookInfo = fopen(bookTxt, "a+");
-	int bookID = bookNum + 1;
-	fprintf(bookInfo, "%d,%s,%s,Library,null,null", bookID, title, author);
-	fprintf(bookInfo, "\n");
-	fclose(bookInfo);
-	printf("Book: %s author: %s added successfully!\n", title, author);
-	bookNum++;
-	//updateBookSheet(bookTxt, bookNum);
-	LibrarianBackToMenu(userNum, bookNum);
-	/*go back to main menu or ask for enter more book*/
-}
 
-/*updated deleteBook hasn't test yet 11/29/2018*/
+	if (bookNum < MAX) {
+		bookPool[bookNum + 1].author = author;
+		bookPool[bookNum + 1].bookID = bookNum + 1;
+		bookPool[bookNum + 1].bookName = title;
+		bookPool[bookNum + 1].status = "Library";
+		bookPool[bookNum + 1].borrowDate.year = 0;
+		bookPool[bookNum + 1].borrowDate.month = 0;
+		bookPool[bookNum + 1].borrowDate.day = 0;
+		bookPool[bookNum + 1].dueDate.year = 0;
+		bookPool[bookNum + 1].dueDate.month = 0;
+		bookPool[bookNum + 1].dueDate.day = 0;
+		bookNum++;
+		updateBookSheet(bookTxt, bookNum);
+		printf("Book %s is sucessfully added\n", title);
+		LibrarianBackToMenu(userNum, bookNum);
+	}
+	/*if bookself is full not able to addBook*/
+	else {
+		printf("Bookself is Full\n");
+		LibrarianBackToMenu(userNum, bookNum);
+	}
+}
 int deleteBook(int userNum, int bookNum) {
 	int enterBookID, n = 1;
 	char choice;
@@ -492,37 +565,37 @@ int deleteBook(int userNum, int bookNum) {
 	scanf(" %d", &enterBookID);
 
 	if (enterBookID == 0) {
-		printf("Invalid Entry! Enter T to Try again or B back to Main menu\n");
+		printf("Invalid Entry! Enter T to Try again or B back to Main menu.\n");
 		scanf(" %c", &choice);
 		if (choice == 'T')
 			deleteBook(userNum, bookNum);
 		if (choice == 'B')
 			LibrarianBackToMenu(userNum, bookNum);
 	}else{	
-		while (n <= bookNum) {
+		while (n <= bookNum) {/*shift array to the left*/
 			Book temptBook = bookPool[n];
 			if (enterBookID == temptBook.bookID) {
 				for (int i = n; i <= bookNum; i++) {
 					bookPool[i] = bookPool[i + 1];
-					/*shift array to the left*/
 				}
 				break;
 			}
 			n++;
 		}
 		bookNum--;
-//		updateBookSheet(bookTxt, bookNum);
-		printf("Book %s successfully deleted", bookPool[n].bookName);
+		updateBookSheet(bookTxt, bookNum);
+		printf("Book successfully deleted\n");
 		LibrarianBackToMenu(userNum, bookNum);
 	}
 }
-
-int checkOutBook(int userNum, int bookNum) {
+int checkOutBook(int userNum, int bookNum, User userPool[]) {
 	int n = 1, counter = 0, i = 1;
-	int userID = 0, bookID = 0;
-	printf("Enter User ID\n");
-	scanf(" %d", &userID);
-	/*check number of books user checked out*/
+	int bookID = 0, userID;
+	char acct[MAX];
+	printf("Enter borrower account name\n");
+	scanf(" %s", &acct);
+	userID = findAcct( acct, userPool,  userNum,  bookNum);
+	/*Find the number of book  associated with user account name*/
 	for (i=1; i <= bookNum; i++) {
 		if (strcmp(userPool[userID].accountName, bookPool[i].status) == 0) {
 			counter++;
@@ -539,42 +612,38 @@ int checkOutBook(int userNum, int bookNum) {
 			deleteBook(userNum, bookNum);
 		if (choice == 'B')
 			LibrarianBackToMenu(userNum, bookNum);
-	}else if (checkBook(bookNum, bookID) == 0) {
+	}else if (checkBook(bookNum, bookID) == 0) {//check if book exist
 		time_t curtime;
+		struct tm *checkin;
 		time(&curtime);
-		struct tm *checkin, checkout;
-		checkin = localtime(curtime);
-		checkout.tm_mday = checkin->tm_mday + 30;
+		checkin = localtime(&curtime); //generate current time and save it as borrow day; 
 
-		bookPool[bookID].borrowDate.tm_year = checkin->tm_year;
-		bookPool[bookID].borrowDate.tm_mon = checkin->tm_mon;
-		bookPool[bookID].borrowDate.tm_mday = checkin->tm_mday;
+		bookPool[bookID].status = acct;
 
-		mktime(&checkout);
-		if (mktime(&checkout) == -1) {
-			printf("Can't not make time.\n");
-		}
-		else {
-			bookPool[bookID].dueDate.tm_year = checkout.tm_year;
-			bookPool[bookID].dueDate.tm_mon = checkout.tm_mon;
-			bookPool[bookID].dueDate.tm_mday = checkout.tm_mday;
-			printf("Book Successfully Checked Out.\n");
-			updateBookSheet(bookTxt, bookNum);
-			LibrarianBackToMenu(userNum, bookNum);
-			/*return to main menu*/
-		}
+		bookPool[bookID].borrowDate.year = checkin->tm_year + 1900;
+		bookPool[bookID].borrowDate.month = checkin->tm_mon + 1;
+		bookPool[bookID].borrowDate.day = checkin->tm_mday;
+
+		mtime checkoutDate = convertTime(bookPool[bookID].borrowDate);
+
+		bookPool[bookID].dueDate.year = checkoutDate.year;
+		bookPool[bookID].dueDate.month = checkoutDate.month;
+		bookPool[bookID].dueDate.day = checkoutDate.day;
+		printf("Book Successfully Checked Out.\n");
+		updateBookSheet(bookTxt, bookNum);
+		LibrarianBackToMenu(userNum, bookNum);
+
 	}else {
 		char choice;
-		printf("Invalid Entry! Enter T to Try again or B back to Main menu");
+		printf("Invalid Entry! Enter T to Try again or B back to Main menu.\n");
 		scanf(" %c", &choice);
 		if (choice == 'T') {
-			checkOutBook(userNum, bookNum);
+			checkOutBook(userNum, bookNum,userPool);
 		}else if (choice == 'B') {
 			LibrarianBackToMenu(userNum, bookNum);
 		}
 	}
 }
-
 void returnBook(int userNum, int bookNum) {
 	int n = 1, counter = 0, year, month, day;
 	int bookID = 0;
@@ -599,30 +668,57 @@ void returnBook(int userNum, int bookNum) {
 		if (choice == 'B')
 			LibrarianBackToMenu(userNum, bookNum);
 	}else {
+		//time_t curtime;
+		//time(&curtime);
+		//struct tm *checkout;
+		//checkout = localtime(curtime);
 		time_t curtime;
-		time(&curtime);
 		struct tm *checkout;
-		checkout = localtime(curtime);
+		time(&curtime);
+		checkout = localtime(&curtime); //generate current time and save it as borrow day;
+		if (checkout->tm_year + 1900 < bookPool[bookID].dueDate.year) {
+			bookPool[bookID].borrowDate.month = 0;
+			bookPool[bookID].borrowDate.day = 0;
+			bookPool[bookID].borrowDate.year = 0;
 
-		if (checkout->tm_year <= bookPool[bookID].dueDate.tm_year &&
-			checkout->tm_mon <= bookPool[bookID].dueDate.tm_mon &&
-			checkout->tm_mday <= bookPool[bookID].dueDate.tm_mday &&
-			userPool[n].fine == 0) {
+			bookPool[bookID].dueDate.month = 0;
+			bookPool[bookID].dueDate.day = 0;
+			bookPool[bookID].dueDate.year = 0;
 
-			bookPool[bookID].borrowDate.tm_mon = NULL;
-			bookPool[bookID].borrowDate.tm_mday = NULL;
-			bookPool[bookID].borrowDate.tm_year = NULL;
-
-			bookPool[bookID].dueDate.tm_mon = NULL;
-			bookPool[bookID].dueDate.tm_mday = NULL;
-			bookPool[bookID].dueDate.tm_year = NULL;
-
-			bookPool[bookID].status = "Librarian";
+			bookPool[bookID].status = "Library";
 
 			printf("Book %s successfully check out.\n", bookPool[bookID].bookName);
 			updateBookSheet(bookTxt, bookNum);
 			LibrarianBackToMenu(userNum, bookNum);
-			/*return to main menu*/
+		}
+		else if (checkout->tm_mon + 1 < bookPool[bookID].dueDate.month) {
+			bookPool[bookID].borrowDate.month = 0;
+			bookPool[bookID].borrowDate.day = 0;
+			bookPool[bookID].borrowDate.year = 0;
+
+			bookPool[bookID].dueDate.month = 0;
+			bookPool[bookID].dueDate.day = 0;
+			bookPool[bookID].dueDate.year = 0;
+
+			bookPool[bookID].status = "Library";
+
+			printf("Book %s successfully check out.\n", bookPool[bookID].bookName);
+			updateBookSheet(bookTxt, bookNum);
+			LibrarianBackToMenu(userNum, bookNum);
+		}else if(checkout->tm_mday <= bookPool[bookID].dueDate.day){
+			bookPool[bookID].borrowDate.month = 0;
+			bookPool[bookID].borrowDate.day =0;
+			bookPool[bookID].borrowDate.year = 0;
+
+			bookPool[bookID].dueDate.month = 0;
+			bookPool[bookID].dueDate.day =0;
+			bookPool[bookID].dueDate.year = 0;
+
+			bookPool[bookID].status = "Library";
+
+			printf("Book %s successfully check out.\n", bookPool[bookID].bookName);
+			updateBookSheet(bookTxt, bookNum);
+			LibrarianBackToMenu(userNum, bookNum);
 		}else{
 			printf("Book is Pass Due.\n");
 			printf("A fine of 500 is imposed.");
@@ -634,9 +730,10 @@ void returnBook(int userNum, int bookNum) {
 	return EXIT_SUCCESS;
 }
 
+
 int main(void) {
-	int bookNum = buildBookPool(bookTxt);
-	int userNum = buildUserPool(userTxt);
+	 int bookNum = buildBookPool(bookTxt);
+	 int userNum = buildUserPool(userTxt);
 
 	char bookName[MAX] = {0};
 	char myAccountName[MAX], myPsw[MAX];
@@ -648,13 +745,9 @@ int main(void) {
 	if (r != 0) {
 		printf("User %s %s found.\n", userPool[r].firstName, userPool[r].lastName);
 	}
-	//findBookByAuthor("J. K. Rowling", bookNum);
-
-	//printf("Enter book name: ");
-	//fgets(bookName, 50, stdin);
-	//findBookByName(bookName ,bookNum);
-	//printf("%d\n", bookPool[2].dueDate.tm_mon);
-	//addBook(bookNum);
-	//returnBook(userNum, bookNum);
+	char userAccount[MAX] = { 0 };
+	userAccount[MAX] =_strdup(userPool[r].accountName);
 	return EXIT_SUCCESS;
 }
+
+
