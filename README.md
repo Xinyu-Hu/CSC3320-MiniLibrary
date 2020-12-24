@@ -1,4 +1,4 @@
-# CSC3320-MiniLibrary
+# MiniLibrary
   4 
 Topic	4.			15	points	(Group,	Implemented	in	C)	
 Mini	Library		
